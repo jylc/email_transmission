@@ -72,7 +72,6 @@ func (client *SMTP) eventLoop() {
 				log.Println("[INFO] send file succeeded")
 			}
 
-			//
 		case <-time.After(time.Duration(client.Config.Keepalive) * time.Second):
 			if open {
 				if err := s.Close(); err != nil {
