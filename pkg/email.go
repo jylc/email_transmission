@@ -13,6 +13,7 @@ type SMTP struct {
 	Config *SMTPConfig
 	ch     chan *mail.Message
 	chOpen bool
+	done   chan bool
 }
 
 type SMTPConfig struct {
@@ -32,6 +33,7 @@ func NewSMTPClient(config *SMTPConfig) *SMTP {
 		Config: config,
 		ch:     make(chan *mail.Message, 30),
 		chOpen: false,
+		done:   make(chan bool),
 	}
 	go client.eventLoop()
 	return client
@@ -65,10 +67,12 @@ func (client *SMTP) eventLoop() {
 				open = true
 			}
 			if err := mail.Send(s, msg); err != nil {
-				log.Printf("[ERROR] send file failed, %s", err)
+				log.Printf("[ERROR] send file failed, %s\n", err)
 			} else {
 				log.Println("[INFO] send file succeeded")
 			}
+
+			//
 		case <-time.After(time.Duration(client.Config.Keepalive) * time.Second):
 			if open {
 				if err := s.Close(); err != nil {
@@ -76,6 +80,7 @@ func (client *SMTP) eventLoop() {
 				}
 				open = false
 			}
+			close(client.done)
 		}
 	}
 }
@@ -100,6 +105,10 @@ func (client *SMTP) Close() {
 	if client.ch != nil {
 		close(client.ch)
 	}
+}
+
+func (client *SMTP) Done() chan bool {
+	return client.done
 }
 
 func NewSMTPConfig(name string) *SMTPConfig {

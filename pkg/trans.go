@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"path/filepath"
+	"time"
 )
 
 // Transporter 运输者
@@ -29,7 +30,7 @@ func (t *Transporter) Transmit(path, name, to, prefix, body string, size uint64)
 	if path == "" && name == "" {
 		log.Fatalln("[ERROR] path and name can neither be empty")
 	}
-	var filenames []string
+	var fullnames []string
 	if path != "" && Exists(path) {
 		err := filepath.Walk(path, func(innerpath string, info fs.FileInfo, err error) error {
 			if err != nil {
@@ -48,7 +49,7 @@ func (t *Transporter) Transmit(path, name, to, prefix, body string, size uint64)
 			if info.Size() > int64(size) {
 				return errors.New(fmt.Sprintf("the size of file %v exceeds the range %v", info.Name(), size))
 			}
-			filenames = append(filenames, info.Name())
+			fullnames = append(fullnames, innerpath)
 			return nil
 		})
 		if err != nil {
@@ -58,14 +59,25 @@ func (t *Transporter) Transmit(path, name, to, prefix, body string, size uint64)
 	}
 
 	if name != "" && Exists(name) {
-		filenames = append(filenames, name)
+		fullnames = append(fullnames, name)
 	}
 
-	for _, filename := range filenames {
-		err := t.client.Send(to, prefix+filename, filename, filename)
+	for _, fullname := range fullnames {
+		_, filename := filepath.Split(fullname)
+		err := t.client.Send(to, prefix+filename, filename, fullname)
 		if err != nil {
-			log.Printf("[ERROR] file %v send failed\n", filename)
+			log.Printf("[ERROR] file %v send into queue failed\n", fullname)
 		}
-		log.Printf("[INFO] file %v send succeed\n", filename)
+		log.Printf("[INFO] file %v send into queue succeed\n", fullname)
+		time.Sleep(1 * time.Second)
+	}
+
+	// 等待邮件发送完成
+	for {
+		select {
+		case <-t.client.Done():
+			log.Println("[INFO] send all mails")
+			return
+		}
 	}
 }
