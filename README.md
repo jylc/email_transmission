@@ -20,3 +20,6 @@ password = "password"
 keepalive = 60
 encryption = true
 ```
+
+## 待修复
+无法自动关闭SMTP连接
