@@ -42,7 +42,7 @@ func (t *Transporter) Transmit(path, name, to, prefix, body string, size uint64)
 			}
 
 			if info.IsDir() {
-				fmt.Printf("[INFO] skip path %vn", info.Name())
+				fmt.Printf("[INFO] skip path %v\n", info.Name())
 				return filepath.SkipDir
 			}
 

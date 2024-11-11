@@ -40,19 +40,19 @@ func NewSMTPClient(config *SMTPConfig) *SMTP {
 }
 
 func (client *SMTP) eventLoop() {
-	d := mail.NewDialer(client.Config.Host, client.Config.Port, client.Config.User, client.Config.Password)
-	d.Timeout = time.Duration(client.Config.Keepalive+5) * time.Second
-	client.chOpen = true
-	d.SSL = false
-	if client.Config.Encryption {
-		d.SSL = true
-	}
-	d.StartTLSPolicy = mail.OpportunisticStartTLS
-
 	var s mail.SendCloser
 	var err error
 	open := false
+	client.chOpen = true
 	for {
+		d := mail.NewDialer(client.Config.Host, client.Config.Port, client.Config.User, client.Config.Password)
+		d.Timeout = time.Duration(client.Config.Keepalive+5) * time.Second
+		d.SSL = false
+		if client.Config.Encryption {
+			d.SSL = true
+		}
+		d.StartTLSPolicy = mail.OpportunisticStartTLS
+
 		select {
 		case msg, ok := <-client.ch:
 			if !ok {
@@ -60,18 +60,14 @@ func (client *SMTP) eventLoop() {
 				client.chOpen = false
 				return
 			}
-			if !open {
-				if s, err = d.Dial(); err != nil {
-					panic(err)
-				}
-				open = true
+			if s, err = d.Dial(); err != nil {
+				panic(err)
 			}
 			if err := mail.Send(s, msg); err != nil {
 				log.Printf("[ERROR] send file failed, %s\n", err)
 			} else {
 				log.Println("[INFO] send file succeeded")
 			}
-
 		case <-time.After(time.Duration(client.Config.Keepalive) * time.Second):
 			if open {
 				if err := s.Close(); err != nil {
